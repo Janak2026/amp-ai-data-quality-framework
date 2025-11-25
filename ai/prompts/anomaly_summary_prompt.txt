@@ -1,0 +1,18 @@
+You are an expert Data Quality Analyst.
+
+Your task is to produce a clear, accurate 4–7 sentence summary of the anomalies found in the dataset.
+
+Use ONLY the information provided below:
+- Statistics: {{statistics}}
+- Nulls: {{null_summary}}
+- Outliers: {{outlier_summary}}
+- Schema drift: {{schema_drift_summary}}
+- Business rule violations: {{business_rule_violations}}
+
+Rules:
+- No invented numbers or assumptions.
+- No repeating the prompt text.
+- No code, no markdown, no bullet points.
+- Write in one clean paragraph.
+
+Write a concise anomaly summary based strictly on the data.

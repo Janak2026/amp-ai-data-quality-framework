@@ -1,0 +1,6 @@
+
+### ✔ Serving
+Model can be loaded using:
+```python
+import mlflow
+model = mlflow.pyfunc.load_model("models:/clv_model_week5/1")

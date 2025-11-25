@@ -1,0 +1,1815 @@
+
+# 📘 **1. project_overview.md**
+
+# Project Overview
+
+## Introduction
+
+This project implements a complete **AI-powered Data Engineering Quality Framework** designed to automate data ingestion, profiling, anomaly detection, LLM-generated insights, and predictive modeling using Databricks, MLflow, and Streamlit.
+It demonstrates how artificial intelligence can significantly improve data reliability, reduce engineering workload, and provide meaningful operational insights.
+
+## Objectives
+
+* Automate data ingestion and Delta Lake table creation.
+* Perform thorough data quality profiling on multiple datasets.
+* Identify anomalies such as null counts, schema drift, and outliers.
+* Use lightweight LLM models to generate human-readable data summaries.
+* Train a machine learning model for predicting customer lifetime value (CLV).
+* Log and version models using MLflow.
+* Build an interactive dashboard to visualize profiling data and usage patterns.
+* Create a multimodal framework combining Big Data, ML, and AI-driven analytics.
+
+## Key Components
+
+* **PySpark ingestion pipelines**
+* **Delta Lake tables (raw, quality, LLM, model inputs)**
+* **Data profiling engine**
+* **Mini LLM (Phi-3-Mini)** for summary generation
+* **ML model (RandomForestRegressor)** trained and logged in MLflow
+* **Streamlit dashboard** for analytics
+* **Git-backed Databricks Repo** for version control
+
+## Business Value
+
+The system reduces manual data validation time, improves trust in analytics, and lays the foundation for AI-augmented Data Engineering practices used in large enterprises.
+
+---
+
+# 📘 **2. system_architecture.md**
+
+# System Architecture
+
+## Overview
+
+The system architecture follows a **modular, scalable, AI-enhanced data engineering lifecycle** deployed on Databricks. It blends structured ETL, Delta Lake reliability, and LLM-powered intelligence.
+
+---
+
+## Architecture Diagram (Text Version)
+
+```
+                ┌────────────────────────┐
+                │   External Data Source │
+                └─────────────┬──────────┘
+                              │
+                              ▼
+               ┌──────────────────────────┐
+               │   Ingestion Pipeline     │
+               │ (PySpark / Delta Lake)   │
+               └─────────────┬────────────┘
+                              │
+                              ▼
+                 ┌────────────────────────┐
+                 │     Silver Tables       │
+                 │  Cleaned/Structured     │
+                 └─────────────┬──────────┘
+                                │
+                                ▼
+                 ┌────────────────────────────┐
+                 │     Data Profiling Engine   │
+                 │ (Nulls, Outliers, Schema)   │
+                 └─────────────┬──────────────┘
+                                │
+                                ▼
+                ┌───────────────────────────────┐
+                │         quality_log (Delta)    │
+                └─────────────┬─────────────────┘
+                                │
+                                ▼
+                ┌────────────────────────────────┐
+                │     LLM Input Preparation       │
+                │   (JSON prompt payloads)        │
+                └─────────────┬──────────────────┘
+                                │
+                                ▼
+             ┌─────────────────────────────────────┐
+             │    LLM Summary Generation (Phi-3)    │
+             └─────────────┬───────────────────────┘
+                            │
+                            ▼
+              ┌───────────────────────────┐
+              │     llm_summaries (Delta) │
+              └─────────────┬─────────────┘
+                            │
+                            ▼
+             ┌─────────────────────────────────────┐
+             │     ML Modeling (Random Forest)      │
+             │    Tracked via MLflow + Unity Cat.   │
+             └─────────────┬───────────────────────┘
+                            │
+                            ▼
+         ┌─────────────────────────────────────────────┐
+         │          Streamlit Analytics Dashboard        │
+         └─────────────────────────────────────────────┘
+```
+
+---
+
+## Components Explained
+
+### 1. **Ingestion Layer**
+
+* Reads raw CSV/JSON files.
+* Loads them into Bronze → Silver → Gold Delta tables.
+* Handles schema normalization and casting.
+
+### 2. **Data Profiling Layer**
+
+Profiling logic includes:
+
+* Null summary
+* Outlier detection
+* Schema drift comparison
+* Business rule validations
+* Logging into `quality_log`
+
+### 3. **LLM Integration Layer**
+
+* `llm_inputs` stores structured prompt payloads.
+* A lightweight Phi-3 Mini model generates:
+
+  * anomaly summaries
+  * data health explanations
+  * root-cause suggestions
+
+### 4. **ML Modeling Layer**
+
+* RandomForestRegressor predicts Customer Lifetime Value.
+* Model logged using MLflow.
+* Registered into Unity Catalog.
+
+### 5. **Dashboard Layer**
+
+Interactive Streamlit UI showing:
+
+* Data quality tables
+* Profiling anomalies
+* Usage metrics
+* Model predictions (optional future extension)
+
+---
+
+# 📘 **3. data_ingestion_pipeline.md**
+
+# Data Ingestion Pipeline
+
+## Purpose
+
+The ingestion pipeline standardizes raw data into structured Delta tables.
+This ensures long-term consistency, schema evolution support, and reliable storage.
+
+---
+
+## Input Sources
+
+The system currently uses sample customer and sales datasets stored inside the repository under:
+
+```
+/ingestion/
+```
+
+Files include:
+
+* `ingest_customers.py`
+* `ingest_sales.py`
+* `ingest_transactions.py`
+
+---
+
+## Pipeline Flow
+
+### **1. Load raw data**
+
+Using PySpark:
+
+```python
+df = spark.read.format("csv").option("header", True).load(path)
+```
+
+---
+
+### **2. Data Type Normalization**
+
+Example:
+
+```python
+df = df.withColumn("amount", F.col("amount").cast("double"))
+```
+
+---
+
+### **3. Deduplication**
+
+```python
+df = df.dropDuplicates()
+```
+
+---
+
+### **4. Write to Bronze Table**
+
+```python
+df.write.format("delta").mode("overwrite").saveAsTable("default.bronze_customers")
+```
+
+---
+
+### **5. Create Silver Tables (cleaned)**
+
+Transformations:
+
+* Trim spaces
+* Extract timestamps
+* Validate numeric ranges
+
+---
+
+### **6. Create Gold Tables**
+
+These tables feed ML and LLM workflows:
+
+* `gold_customer_sales`
+* `gold_customer_transactions`
+* `gold_product_sales`
+
+---
+
+## Example Silver Table Transformation
+
+```python
+cleaned = (
+    df
+    .withColumn("email", F.lower(F.col("email")))
+    .withColumn("signup_date", F.to_date("signup_date"))
+)
+```
+
+---
+
+## Benefits
+
+* Fully automated
+* Repeatable
+* Version-controlled
+* Delta Lake ACID guarantees
+* Consistent schema across datasets
+
+---
+Perfect — here is **Batch 2 (Documents 4–6)**.
+Each document is clean, complete, professional, and ready to paste into:
+
+📁 `/Workspace/Repos/jana21.amazon@gmail.com/amp-ai-data-quality-framework/docs/`
+
+---
+
+# 📘 **4. data_profiling_engine.md**
+
+# Data Profiling Engine
+
+## Overview
+
+The Data Profiling Engine analyzes each dataset and generates structured metadata that helps identify anomalies, schema drift, and potential data quality issues.
+The output is stored in the Delta table:
+
+```
+default.quality_log
+```
+
+The profiling engine is the foundation for all downstream LLM automation and ML predictions.
+
+---
+
+## Core Profiling Functions
+
+### **1. Null Summary**
+
+Counts null values for each important column.
+
+Example:
+
+```json
+{
+  "email": 50,
+  "phone": 120
+}
+```
+
+### **2. Outlier Detection**
+
+* Uses simple numeric thresholds.
+* Detects values outside expected ranges.
+
+Example:
+
+```json
+{
+  "age": {
+    "count": 5,
+    "examples": [120, 3]
+  }
+}
+```
+
+### **3. Schema Drift Detection**
+
+Compares expected schema vs. actual schema at runtime.
+
+Example:
+
+```json
+{
+  "missing_columns": ["middle_name"],
+  "extra_columns": ["tmp_debug_col"]
+}
+```
+
+### **4. Business Rule Violations**
+
+Custom validations defined in Python.
+
+Examples:
+
+* `age_negative` → values < 0
+* `invalid_email_format` → email not matching regex
+
+---
+
+## Profiling Process Flow
+
+```
+           ┌────────────┐
+           │  Raw Data  │
+           └──────┬─────┘
+                  ▼
+        ┌────────────────────┐
+        │ Profiling Engine   │
+        │ (PySpark + Python) │
+        └──────┬─────────────┘
+               ▼
+       ┌──────────────────────┐
+       │  quality_log (Delta) │
+       └──────────────────────┘
+```
+
+---
+
+## Data Model — quality_log
+
+| Column                   | Type   | Description           |
+| ------------------------ | ------ | --------------------- |
+| table_name               | string | Name of source table  |
+| run_id                   | string | Execution ID          |
+| timestamp                | string | Profiling timestamp   |
+| statistics               | struct | Row count, min, max   |
+| null_summary             | struct | Null counts           |
+| outlier_summary          | struct | Outlier analysis      |
+| schema_drift_summary     | struct | Missing/extra columns |
+| business_rule_violations | struct | Rule violations       |
+
+---
+
+## Why This Matters
+
+The profiling engine powers the rest of the system:
+
+* **LLM Prompts** → Use structured metadata
+* **ML Model** → Predicts CLV based on clean data
+* **Dashboard** → Shows anomalies visually
+* **Data Engineers** → Save hours of manual validation
+
+This creates true AI-Augmented Data Engineering.
+
+---
+
+---
+
+# 📘 **5. llm_summary_module.md**
+
+# LLM Summary Module
+
+## Overview
+
+The LLM Summary Module converts structured profiling metadata into natural-language summaries using a **local lightweight model**:
+
+➡️ **Microsoft Phi-3 Mini (fast & deterministic)**
+
+This replaces expensive OpenAI APIs and gives full control inside Databricks.
+
+---
+
+## Inputs
+
+The LLM receives structured JSON stored inside:
+
+```
+default.llm_inputs
+```
+
+Each row contains:
+
+* table_name
+* statistics
+* null summary
+* outlier summary
+* schema drift summary
+* business rule violations
+* prompt types (anomaly summary, data health, root causes)
+
+---
+
+## LLM Tasks
+
+### **1. Anomaly Summary (4–7 sentences)**
+
+Clear English description of all issues detected.
+
+### **2. Data Health Summary (5–7 sentences)**
+
+Rates dataset as good / moderate / poor.
+
+### **3. Root Cause Analysis (2–4 bullets)**
+
+Hypotheses supported strictly by provided data.
+
+---
+
+## Prompting Strategy
+
+### **Strict, Safe, No-Hallucination Rules**
+
+Every prompt includes:
+
+* Use ONLY provided data
+* No inventions
+* No unrelated chat
+* No code
+* Clear output boundaries
+* No repeating the prompt
+
+This ensures stability even on small models.
+
+---
+
+## Execution Flow
+
+```
+               ┌──────────────────────────┐
+               │    llm_inputs (Delta)    │
+               └───────────┬──────────────┘
+                           ▼
+                ┌────────────────────────┐
+                │ Phi-3 Mini Inference   │
+                └───────────┬────────────┘
+                           ▼
+             ┌─────────────────────────────┐
+             │   llm_summaries (Delta)     │
+             └─────────────────────────────┘
+```
+
+---
+
+## Output Example — Anomaly Summary
+
+```
+The dataset contains 1000 records, with ages ranging from 18 to 75. 
+There are 50 missing email values and 120 missing phone numbers...
+```
+
+---
+
+## Why Lightweight Local LLM?
+
+* Zero token cost
+* No external API calls
+* Faster inference
+* Works fully offline
+* Fully compliant with enterprise constraints
+
+This enables real-time LLM augmentation within Lakehouse pipelines.
+
+---
+
+---
+
+# 📘 **6. mlflow_model_training.md**
+
+# MLflow Model Training
+
+## Overview
+
+A machine learning model was trained to predict **Customer Lifetime Value (CLV)** using gold-layer customer metrics.
+The model is a **RandomForestRegressor** and is fully logged and versioned using MLflow + Unity Catalog.
+
+---
+
+## Input Training Data
+
+Gold table:
+
+```
+default.gold_customer_sales
+```
+
+Features:
+
+* total_spend
+* total_orders
+* avg_order_value
+* first_purchase_date
+* last_purchase_date
+
+Label:
+
+* total_spend (as target CLV)
+
+---
+
+## Training Workflow
+
+### **1. Load Data from Delta**
+
+PySpark DataFrame → Pandas for training
+
+### **2. Feature Engineering**
+
+* Convert dates to numeric days
+* Drop customer_id
+* Scale/clean data
+
+### **3. Train-Test Split**
+
+```python
+X_train, X_test, y_train, y_test = train_test_split(...)
+```
+
+---
+
+## Model Algorithm
+
+### **RandomForestRegressor**
+
+Chosen because:
+
+* Handles non-linear relationships
+* Performs well with small/medium datasets
+* Low risk of overfitting
+* Stable predictions
+
+---
+
+## MLflow Logging
+
+The run tracks:
+
+* Parameters (n_estimators, max_depth…)
+* Metrics (MAE, RMSE, R²)
+* Feature importance
+* Model signature
+* Model artifact (saved `.pkl`)
+* Registered model:
+
+  ```
+  clv_model_week5
+  ```
+
+A model signature was added to comply with Unity Catalog requirements.
+
+---
+
+## Model Performance (Example)
+
+```
+Accuracy (R²): 0.98
+MAE: 112.55
+RMSE: 214.30
+```
+
+---
+
+## Where the Model Is Stored
+
+### Local Repo Copy
+
+```
+/Workspace/Repos/jana21.amazon@gmail.com/amp-ai-data-quality-framework/models/base_model.pkl
+```
+
+### Unity Catalog Registered Model
+
+```
+Models > clv_model_week5
+```
+
+---
+
+## Why MLflow?
+
+* Versioning
+* Reproducibility
+* Experiment lineage
+* Model comparison
+* Unified tracking across Spark & Python
+
+This establishes a professional-grade ML lifecycle.
+
+---
+
+# 📘 **7. streaming_pipeline_design.md**
+
+# Streaming Pipeline Design
+
+## Overview
+
+This document describes how a streaming-ready architecture is integrated into the AI-DE Mastery project. While the current implementation uses batch processing, the system is designed so that real-time ingestion and profiling can be added easily without redesigning the entire workflow.
+
+---
+
+## Why Streaming Support?
+
+Many enterprise systems require:
+
+* near real-time anomaly alerts
+* rolling data quality monitoring
+* continuous LLM-based summaries
+* automatic incident detection
+
+The pipeline is structured to allow these capabilities with minimal changes.
+
+---
+
+## High-Level Streaming Architecture
+
+```
+                  ┌────────────────────┐
+   Raw Stream →   │  Auto Loader       │
+                  │ (cloud_files)      │
+                  └───────┬────────────┘
+                          ▼
+                 ┌─────────────────┐
+                 │ Bronze Stream   │
+                 └───────┬─────────┘
+                         ▼
+                ┌──────────────────┐
+                │ Profiling Engine │
+                └───────┬──────────┘
+                        ▼
+             ┌──────────────────────┐
+             │ llm_inputs (Delta)   │
+             └───────┬──────────────┘
+                     ▼
+             ┌──────────────────────┐
+             │ LLM Summary Module   │
+             └──────────────────────┘
+```
+
+---
+
+## Key Components
+
+### **1. Auto Loader (Optional Future Upgrade)**
+
+Allows continuous ingestion from:
+
+* Azure Blob
+* ADLS Gen2
+* S3
+* GCS
+
+### **2. Streaming Bronze**
+
+Stores raw append-only data for:
+
+* reprocessing
+* data lineage
+* replaying old events
+
+### **3. Trigger-aware Profiling**
+
+Profiling logic is written in modular PySpark, allowing:
+
+* micro-batch mode
+* continuous mode
+* “process only new data” logic
+
+### **4. Incremental LLM Updates**
+
+Only new profiling rows are processed and summarized.
+
+---
+
+## Future Extensions
+
+* Event-based alerting
+* Slack/MS Teams notifications
+* Anomaly severity scoring
+* Streaming ML predictions
+
+This design ensures the architecture remains scalable as the project evolves.
+
+---
+
+---
+
+# 📘 **8. delta_lake_optimization_guide.md**
+
+# Delta Lake Optimization Guide
+
+## Overview
+
+This document outlines how to optimize Delta tables used throughout the AI-DE Mastery framework for performance, cost efficiency, and reliability.
+
+The main tables in this project:
+
+* `quality_log`
+* `llm_inputs`
+* `llm_summaries`
+* `gold_customer_sales`
+* `usage_log`
+
+---
+
+## Optimization Techniques
+
+### **1. Z-Ordering**
+
+Improves read performance when filtering by certain columns.
+
+Examples:
+
+```sql
+OPTIMIZE default.quality_log
+ZORDER BY (table_name);
+```
+
+```sql
+OPTIMIZE default.llm_summaries
+ZORDER BY (run_id);
+```
+
+---
+
+### **2. Vacuum**
+
+Removes old file versions and frees storage.
+
+```
+VACUUM default.quality_log RETAIN 168 HOURS;
+```
+
+---
+
+### **3. Auto Optimize Settings**
+
+Recommended for this project:
+
+```sql
+SET spark.databricks.delta.optimizeWrite.enabled = true;
+SET spark.databricks.delta.autoCompact.enabled = true;
+```
+
+---
+
+### **4. Partitioning Strategy (Optional)**
+
+Works well for large enterprise datasets, not required for your small samples.
+
+Options:
+
+* partition by `table_name` for profiling tables
+* partition by `date` for CLV predictions
+
+---
+
+### **5. Data Skipping Review**
+
+Ensure schema fields are stored in columnar Parquet format → automatically helps skipping.
+
+---
+
+## Benefits
+
+* Faster LLM summarization queries
+* Smoother dashboard experience
+* Efficient storage over time
+* Clean historical lineage
+
+This makes the entire platform production-ready.
+
+---
+
+---
+
+# 📘 **9. continuous_integration_plan.md**
+
+# Continuous Integration (CI) Plan
+
+## Overview
+
+This document outlines a CI strategy for maintaining code quality, preventing regressions, and enabling safe collaboration for the AI-DE Mastery framework.
+
+Although Databricks repos are used, the principles are platform-agnostic.
+
+---
+
+## CI Goals
+
+* Ensure code consistency
+* Validate PySpark pipelines
+* Validate ML notebooks
+* Prevent schema drift
+* Enforce linting
+* Automate basic tests
+
+---
+
+## Tools Used
+
+* **GitHub Actions**
+* **flake8** for linting
+* **pytest** for unit tests
+* **Databricks CLI** (optional)
+
+---
+
+## CI Pipeline Workflow
+
+### **1. Code Checkout**
+
+Pull latest changes from GitHub.
+
+### **2. Linting**
+
+Run flake8 to detect syntax issues.
+
+### **3. Unit Tests**
+
+Test:
+
+* profiling functions
+* feature engineering
+* LLM prompt builders
+* model loading logic
+
+### **4. Notebook Workflow Tests**
+
+Verify Databricks workflows run without failure.
+
+### **5. Delta Table Schema Validation**
+
+Prevent accidental schema changes.
+
+### **6. ML Model Validation**
+
+Load the registered ML model and perform:
+
+* predict test
+* type checks
+
+---
+
+## Folder Structure for CI
+
+```
+tests/
+   ├── test_profiling.py
+   ├── test_llm_prompts.py
+   ├── test_model.py
+.github/
+   └── workflows/
+        └── ci.yml
+```
+
+---
+
+## Example CI Trigger
+
+```yaml
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+```
+
+---
+
+## Why CI Matters
+
+* Protects your repo
+* Guarantees stable production code
+* Makes your project enterprise-ready
+* Builds long-term engineering habits
+
+---
+
+# 📘 **10. troubleshooting_guide.md**
+
+# Troubleshooting Guide
+
+A comprehensive list of common issues encountered in the AI-DE Mastery Framework and how to resolve them.
+
+---
+
+## 1. Databricks File I/O Errors
+
+### **Error**
+
+```
+OSError: [Errno 5] Input/output error
+```
+
+### **Cause**
+
+* Trying to write to restricted paths like `/dbfs/Workspace/…`
+* Missing folder permissions
+
+### **Fix**
+
+Use safe paths only:
+
+```
+/dbfs/tmp/
+/dbfs/FileStore/
+/Workspace/Repos/<your email>/amp-ai-data-quality-framework/
+```
+
+---
+
+## 2. Delta Table Merge Errors
+
+### **Error**
+
+```
+DELTA_FAILED_TO_MERGE_FIELDS
+```
+
+### **Cause**
+
+Two columns with same name but different types appeared across runs.
+
+### **Fix**
+
+1. Drop old table
+2. Recreate with clean schema
+3. Overwrite mode for test runs
+
+---
+
+## 3. LLM API Failures
+
+### **Common Errors**
+
+* Rate limit
+* Invalid API key
+* Timeout
+* 429 insufficient quota
+
+### **Fix**
+
+* Use Databricks Foundation Model endpoints
+* Use small local models (TinyLlama, Phi-3, Gemma-2B)
+* Enable batching for prompts
+
+---
+
+## 4. MLflow Signature Errors
+
+### **Error**
+
+```
+Model passed for registration did not contain any signature metadata
+```
+
+### **Fix**
+
+Always log models with:
+
+```python
+from mlflow.models.signature import infer_signature
+signature = infer_signature(X_sample, model.predict(X_sample))
+mlflow.sklearn.log_model(model, "model", signature=signature)
+```
+
+---
+
+## 5. Streamlit Dashboard Errors
+
+### **Errors**
+
+* `ModuleNotFoundError: streamlit`
+* Missing `mlflow`, `pandas`, `matplotlib`
+
+### **Fix**
+
+Install:
+
+```
+pip install streamlit pandas matplotlib mlflow
+```
+
+---
+
+## 6. SQLite Errors
+
+### **Error**
+
+```
+database is locked
+```
+
+### **Fix**
+
+Ensure:
+
+```python
+conn.commit()
+conn.close()
+```
+
+---
+
+## 7. Model File Missing
+
+### **Cause**
+
+Saving to unstable or blocked paths.
+
+### **Fix**
+
+Use:
+
+```
+/Workspace/Repos/<email>/amp-ai-data-quality-framework/models/base_model.pkl
+```
+
+---
+
+## 8. Long-Running LLM Calls
+
+### **Fix**
+
+Use CPU models:
+
+* `TinyLlama/TinyLlama-1.1B`
+* `Phi-3-mini-4k-instruct`
+* `Gemma-2B-it` (if access allowed)
+
+---
+
+---
+
+# 📘 **11. testing_strategy.md**
+
+# Testing Strategy for AI-DE Mastery Framework
+
+This document outlines the full testing approach covering PySpark pipelines, LLM modules, ML models, and dashboard components.
+
+---
+
+# 1. Unit Testing
+
+### Components to test:
+
+* Profiling logic
+* Null summary function
+* Outlier computation
+* Schema drift checker
+* Business rule evaluator
+* CLV feature engineering
+
+### Example:
+
+```python
+def test_row_count():
+    assert df.count() > 0
+```
+
+---
+
+# 2. Integration Testing
+
+Focus on:
+
+* Delta table writes
+* MLflow model loading
+* LLM pipeline end-to-end
+* CLV prediction inference
+
+### Example:
+
+* Pass synthetic data → expect valid LLM summaries
+* Write → read → verify Delta schema stays consistent
+
+---
+
+# 3. LLM Prompt Validation
+
+Tests:
+
+* no hallucinations
+* length control
+* format compliance
+* anti-noise checks
+
+Approach:
+
+* Test outputs contain only allowed sections
+* Verify no unexpected dialogue
+
+---
+
+# 4. ML Model Testing
+
+### Types:
+
+* Accuracy test
+* F1-score test
+* Type safety test
+* MLflow loading test
+
+### Example:
+
+```python
+loaded_model = mlflow.sklearn.load_model(model_uri)
+assert hasattr(loaded_model, "predict")
+```
+
+---
+
+# 5. Data Quality Regression Tests
+
+Every new run must ensure:
+
+* no new schema drift
+* stable summary format
+* reproducible LLM summary structure
+
+This prevents breaking dashboards.
+
+---
+
+# 6. Dashboard Tests (Local)
+
+Verify:
+
+* CSV loads correctly
+* Delta → pandas conversion works
+* Graph renders without error
+* Filters behave as expected
+
+---
+
+# 7. Automated CI Tests
+
+Test suite triggered by:
+
+* every push
+* every PR
+* every merge
+
+Ensures main branch is always stable.
+
+---
+
+# 📘 **12. architecture_decisions_log.md**
+
+# Architecture Decisions Log (ADL)
+
+A permanent record of key architectural decisions taken during the design & build of the AI-DE Mastery Framework.
+
+---
+
+## **AD-1: Delta Lake as the Storage Layer**
+
+**Reason:**
+ACID transactions, schema evolution, scalable metadata.
+
+**Alternatives:**
+Parquet files — rejected due to lack of transactional guarantees.
+
+---
+
+## **AD-2: PySpark as the Primary Processing Engine**
+
+**Reason:**
+Handles large-scale transformations and profiling with ease.
+
+**Alternatives:**
+Pandas — rejected due to scalability limits.
+
+---
+
+## **AD-3: Three-Tier Profiling Architecture**
+
+Tables:
+
+* raw profiling logs → `quality_log`
+* LLM inputs → `llm_inputs`
+* final cleaned summaries → `llm_summaries`
+
+**Reason:**
+Clear separation of concerns.
+
+---
+
+## **AD-4: Local Small LLMs for Summary Generation**
+
+Models used:
+
+* TinyLlama
+* Phi-3
+* Gemma-2B
+
+**Reason:**
+No external API calls, stable, cost-free, privacy-safe.
+
+---
+
+## **AD-5: MLflow for Model Tracking**
+
+**Reason:**
+Versioning, reproducibility, and serving integration.
+
+---
+
+## **AD-6: Local Streamlit Dashboard**
+
+**Reason:**
+Databricks removed "Run as App", so local UI is required.
+
+---
+
+## **AD-7: SQLite Logging Layer**
+
+Files:
+
+* `usage_log.csv`
+* `ai_summary.csv`
+
+**Reason:**
+Simple, portable, works offline, perfect for local dashboard.
+
+---
+
+## **AD-8: Modular Notebook Design**
+
+Notebooks created:
+
+* 01_ingestion_preprocessing
+* 02_llm_summary_generation
+* 03_postprocess_and_store
+* 04_model_training
+* 05_dashboard
+
+**Reason:**
+Clear stepwise learning & debugging.
+
+---
+
+## **AD-9: GitHub Repo Export**
+
+**Reason:**
+Portfolio usefulness, recruiter visibility.
+
+---
+
+## **AD-10: Documentation in `/docs/` Folder**
+
+**Reason:**
+Long-term maintainability, enterprise readiness.
+
+---
+
+# 📘 **13. deployment_guide.md**
+
+# Deployment Guide
+
+A complete reference for deploying the AI Data Quality Framework in any environment (Databricks, local, cloud, or hybrid).
+
+---
+
+# 1. Deployment Architecture Overview
+
+The framework supports two major components:
+
+### **A. Databricks Backend**
+
+* Ingestion using PySpark
+* Delta Lake storage
+* MLflow tracking & model registry
+* LLM inference (local CPU models)
+* Quality logs + summaries
+
+### **B. Local Streamlit Dashboard**
+
+* Visualizes quality logs
+* Visualizes usage logs
+* Loads MLflow model predictions
+* Runs fully offline
+
+---
+
+# 2. Deploying the Databricks Backend
+
+### **Step 1 — Create Repo**
+
+```
+Repos → Add Repo → Connect Git → Clone: amp-ai-data-quality-framework
+```
+
+### **Step 2 — Import Notebooks**
+
+Place all notebooks inside:
+
+```
+/Workspace/Repos/<email>/amp-ai-data-quality-framework/notebooks/
+```
+
+### **Step 3 — Run Pipelines (01 → 04)**
+
+Execute in order:
+
+1. Ingestion
+2. Profiling
+3. LLM generation
+4. CLV model training
+
+### **Step 4 — Create Delta Tables**
+
+Required tables:
+
+* `quality_log`
+* `llm_inputs`
+* `llm_summaries`
+* `usage_log`
+* `gold_customer_sales`
+
+---
+
+# 3. Deploying the ML Model
+
+MLflow registry steps:
+
+```
+mlflow.sklearn.log_model(...)
+```
+
+Ensure:
+
+* signature defined
+* model saved in `/models/`
+* registered model name: `clv_model_week5`
+
+Deploy using:
+
+```
+mlflow.pyfunc.load_model(model_uri)
+```
+
+---
+
+# 4. Deploying the Streamlit Dashboard (Local)
+
+### Install dependencies:
+
+```
+pip install streamlit pandas plotly mlflow matplotlib
+```
+
+### Run:
+
+```
+streamlit run dashboard_app.py
+```
+
+Dashboard auto-loads:
+
+* `usage_log.csv`
+* `ai_summary.csv`
+
+---
+
+# 5. Folder Structure for Deployment
+
+```
+amp-ai-data-quality-framework/
+│
+├── docs/
+├── models/
+├── notebooks/
+├── app/
+│   └── dashboard_app.py
+├── data/
+│   ├── usage_log.csv
+│   └── ai_summary.csv
+└── workflows/
+```
+
+---
+
+# 6. Verification Checklist
+
+### After deployment:
+
+✔ Delta tables created
+✔ LLM outputs appear
+✔ Dashboard reads CSVs
+✔ Model predictions work
+✔ No missing file errors
+
+---
+
+# 📘 **14. faq.md**
+
+# Frequently Asked Questions (FAQ)
+
+---
+
+### **1. Why use Delta instead of Parquet?**
+
+Delta adds ACID transactions, schema evolution, and fast metadata queries.
+
+### **2. Why run LLMs locally instead of API calls?**
+
+* No cost
+* No rate limits
+* No API failures
+* 100% offline
+
+### **3. Why use SQLite/CSV for dashboard instead of Delta?**
+
+Streamlit runs locally outside Databricks; SQLite/CSV ensures portability.
+
+### **4. Why is my model not registering in MLflow?**
+
+You must include the signature:
+
+```python
+signature = infer_signature(X_sample, y_pred)
+```
+
+### **5. Why did Databricks remove “Run as App”?**
+
+They replaced it with Lakehouse Apps.
+CE free tier does not support it.
+
+### **6. Why does my LLM give long or hallucinated results?**
+
+Add strict guardrails:
+
+* “No invented numbers”
+* “Stop after X sentences”
+* “No markdown”
+
+### **7. Why do we store 3 layers of LLM logs?**
+
+* inputs → debugging
+* raw outputs → analysis
+* clean outputs → final use
+
+### **8. Why use MLflow for a simple sklearn model?**
+
+Prepares you for enterprise MLOps and model serving in later phases.
+
+### **9. Why Streamlit instead of Power BI/Tableau?**
+
+* Code-native
+* Version-controlled
+* Cloud-ready
+* Free
+* Lightweight
+
+### **10. How to reset everything?**
+
+Drop tables:
+
+```
+DROP TABLE IF EXISTS default.quality_log;
+DROP TABLE IF EXISTS default.llm_inputs;
+DROP TABLE IF EXISTS default.llm_summaries;
+DROP TABLE IF EXISTS default.usage_log;
+```
+
+---
+
+# 📘 **15. glossary.md**
+
+# Glossary of Terms
+
+Definitions of all concepts used in the project.
+
+---
+
+## **A. Data Engineering Concepts**
+
+### **Delta Lake**
+
+A storage layer offering ACID transactions and data versioning on top of Parquet.
+
+### **PySpark**
+
+Distributed processing engine for big data transformations.
+
+### **Schema Drift**
+
+Unexpected changes to schema (missing columns, new columns).
+
+### **Business Rule Violations**
+
+Values that break domain rules (negative age, invalid email).
+
+---
+
+## **B. Machine Learning Concepts**
+
+### **MLflow**
+
+Tool for experiment tracking, model registry, and serving.
+
+### **Model Signature**
+
+A formal schema that describes model inputs/outputs.
+
+### **CLV (Customer Lifetime Value)**
+
+Prediction of how much revenue a customer will generate.
+
+---
+
+## **C. LLM Concepts**
+
+### **Guardrails**
+
+Rules applied to LLM prompts to prevent hallucinations.
+
+### **Inference**
+
+Running a model to generate outputs (summaries, predictions).
+
+### **Small Language Models (SLMs)**
+
+Tiny LLMs like TinyLlama or Phi-3 used for offline inference.
+
+---
+
+## **D. Dashboard / Visualization**
+
+### **Streamlit**
+
+Python framework to build data apps.
+
+### **Usage Log**
+
+Record of user actions, LLM calls, or interactions.
+
+---
+
+## **E. Databricks Concepts**
+
+### **Repos**
+
+Git-backed folder inside Databricks Workspace.
+
+### **Workspace**
+
+Environment for notebooks, tables, dashboards.
+
+### **Unity Catalog**
+
+Central governance and cataloging system.
+
+---
+
+Here is **Batch 6 (Docs 16–18)** — polished, permanent, and ready to place inside:
+
+```
+/Workspace/Repos/jana21.amazon@gmail.com/amp-ai-data-quality-framework/docs/
+```
+
+---
+
+# 📘 **16. troubleshooting.md**
+
+# Troubleshooting Guide
+
+A practical reference for fixing common errors encountered across ingestion, profiling, LLM, MLflow, and Streamlit dashboard.
+
+---
+
+## **1. Databricks File/Path Errors**
+
+### **Error: “Input/output error: /dbfs/…”**
+
+Cause: `/dbfs/` is unstable for Python write streams.
+Fix:
+
+* Use workspace paths:
+
+  ```
+  /Workspace/Repos/<email>/amp-ai-data-quality-framework/models/
+  ```
+* Or use `fuse:` format:
+
+  ```
+  /Volumes/... (if UC enabled)
+  ```
+
+---
+
+## **2. MLflow Model Errors**
+
+### **Error: “Model did not contain signature metadata”**
+
+Fix:
+Add:
+
+```python
+from mlflow.models.signature import infer_signature
+signature = infer_signature(X_sample, y_pred)
+mlflow.sklearn.log_model(model, "model", signature=signature)
+```
+
+### **Error: NameError: X_test not defined**
+
+Cause: using Spark DataFrame instead of Pandas.
+Fix:
+
+```python
+X_sample = X.toPandas().head(50)
+y_pred = model.predict(X_sample)
+```
+
+---
+
+## **3. LLM Errors**
+
+### **Error: ‘ServingEndpointsExt’ has no attribute ‘chat_completions’**
+
+Fix:
+Use **local HuggingFace models**, not Databricks endpoints.
+
+### **Error: LLM outputs extra sentences or repeats prompt**
+
+Fix: Add strict rules:
+
+```
+- No invented numbers
+- No repeating prompt
+- Stop after 6 sentences
+- No markdown
+```
+
+---
+
+## **4. Streamlit Errors**
+
+### **Error: Missing ScriptRunContext**
+
+Cause: Running inside Notebook.
+Fix: Streamlit must run from CMD only:
+
+```
+streamlit run dashboard_app.py
+```
+
+### **Error: No module named streamlit**
+
+Fix:
+
+```
+pip install streamlit
+```
+
+---
+
+## **5. Dashboard CSV Not Loading**
+
+### **Error: FileNotFoundError: usage_log.csv**
+
+Fix:
+Ensure:
+
+```
+/Directory/usage_log.csv
+/Directory/ai_summary.csv
+```
+
+are located in the same folder from where you run streamlit.
+
+---
+
+## **6. Delta Table Errors**
+
+### **Error: Table not found: usage_log**
+
+Fix:
+
+```
+CREATE TABLE default.usage_log AS SELECT * FROM <path>;
+```
+
+---
+
+# Troubleshooting Summary
+
+This guide covers:
+
+* File path issues
+* MLflow signature issues
+* Local SLM model errors
+* Streamlit runtime issues
+* Missing CSV and table issues
+* Prompt guardrail failures
+
+Add more as the project grows.
+
+---
+
+# 📘 **17. release_notes.md**
+
+# Release Notes
+
+This document tracks progress for every major update made to the AI Data Quality Framework.
+
+---
+
+# **Version 1.0.0 — Initial Release**
+
+### **Core Features**
+
+* Project repository created in Databricks
+* Gold Layer dataset defined
+* Data ingestion pipeline added (PySpark)
+* Delta Lake pipeline implemented
+
+### **Data Quality Engine**
+
+* Profiling rules (nulls, outliers, schema drift)
+* Quality log table
+* Cleanup + validation
+
+### **LLM Layer**
+
+* TinyLlama & Phi-3 inference
+* Guardrails
+* LLM input table
+* Raw + cleaned summaries
+* Anomaly summary pipeline
+* Root cause engine
+
+### **ML Layer**
+
+* CLV Model Training
+* MLflow experiment tracking
+* Model signature + registration
+* Model saved locally and in workspace
+
+### **Dashboard Layer**
+
+* Local Streamlit dashboard
+* AI summary table
+* Usage logs
+* Matplotlib charts
+
+---
+
+# **Version 1.1.0 — Improvements**
+
+### Optimizations
+
+* Faster ingestion
+* Cleaned guardrail prompts
+* Simplified model saving
+* Enhanced summary extraction
+
+### UI/UX
+
+* Improved dashboards
+* Cleaner tables
+* Usage analytics
+
+---
+
+# **Version 1.2.0 — LLM Enhancements (Planned)**
+
+* Add validation agent
+* Add prompt evaluation metrics
+
+---
+
+# **Version 1.3.0 — Phase 2 Integration (Planned)**
+
+* Azure Cognitive Services Labs
+* Embedding pipeline
+* Retrieval augmented engine
+
+---
+
+# **Version 2.0.0 — Full Production (Planned)**
+
+* FastAPI microservice
+* Monitoring dashboards
+* CI/CD pipelines
+* Automated testing
+---
+...Release notes end here...
