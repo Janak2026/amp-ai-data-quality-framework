@@ -1,1 +1,0 @@
-{"version":"Manifest","guid":"bde35b54-ae7f-429a-a90d-2b17e2d3222c","origId":-1,"name":"manifest.mf"}
