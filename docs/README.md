@@ -98,14 +98,17 @@ streamlit run dashboard_app.py
 ```
 amp-ai-data-quality-framework/
 │
-├── ai/                 # LLM prompts, LangChain logic
-├── app/                # Streamlit dashboard
-├── docs/               # Documentation (architecture, design, profiling)
-├── ingestion/          # PySpark ingestion pipeline
-├── ml/                 # MLflow + model training scripts
-├── models/             # Saved pickle models
-├── profiling/          # Data validation & anomaly detection
-└── README.md
+├── ai/               # LLM prompts, prompt templates, anomaly summaries
+├── app/              # Streamlit dashboard application
+├── docs/             # Full project documentation (architecture, MLflow, profiling)
+├── gold/             # Final transformed & curated Delta tables
+├── ingestion/        # PySpark ingestion pipelines + Delta Lake writers
+├── ml/               # Model training, MLflow tracking, signatures
+├── models/           # Saved ML models (pickle / UC registered references)
+├── profiling/        # Data validation, anomaly detection, statistics logs
+│
+└── README.md         # Project overview (this file)
+
 ```
 
 ---
@@ -155,22 +158,6 @@ ML artifacts are stored under:
 ```
 models/base_model.pkl
 ```
-
----
-
-## 📜 Documentation (Full Set)
-
-All documents live in:  
-`/docs/`
-
-Includes:
-- System architecture  
-- Data model  
-- Summary generation  
-- MLflow usage  
-- Profiling flow  
-- Deployment guides  
-- Governance  
 
 ---
 
