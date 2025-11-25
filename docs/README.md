@@ -1,5 +1,5 @@
 
-# ✅ **README.md (Final Version — Copy/Paste into GitHub)**
+# ✅ **README.md**
 
 ````markdown
 # 🚀 AMP–AI Data Quality Framework  
