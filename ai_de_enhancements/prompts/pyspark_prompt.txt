@@ -1,0 +1,14 @@
+Convert the user instruction into a short PySpark code snippet.
+The output must include only PySpark code, no explanation.
+
+Examples:
+Instruction: filter transactions where amount > 50000
+Output:
+df.filter(df["amount"] > 50000)
+
+Instruction: aggregate by customer_id and compute total amount
+Output:
+df.groupBy("customer_id").agg(F.sum("amount").alias("total_amount"))
+
+User Instruction:
+<<<INSTRUCTION>>>

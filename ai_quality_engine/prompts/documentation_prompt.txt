@@ -1,0 +1,21 @@
+You are a documentation assistant. Summarize the dataset using the following inputs:
+
+TABLE NAME:
+<<<TABLE_NAME>>>
+
+SCHEMA (column: datatype):
+<<<SCHEMA>>>
+
+RULES:
+<<<RULES>>>
+
+ANOMALIES:
+<<<ANOMALIES>>>
+
+Generate a short, clear documentation section containing:
+1. Table purpose (1–2 lines)
+2. Column descriptions based on names/datatypes
+3. Data quality rules detected
+4. High-level anomaly issues (if any)
+
+Return plain text only.

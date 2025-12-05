@@ -1,0 +1,7 @@
+Convert the following natural-language rule into a JSON object with keys:
+rule_id, description, column, rule_type, thresholds, severity, action.
+
+Return ONLY JSON.
+
+User Rule:
+<<<RULE>>>

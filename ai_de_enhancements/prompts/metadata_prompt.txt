@@ -1,0 +1,23 @@
+Summarize the dataset using the following metadata:
+
+TABLE NAME:
+<<<TABLE>>>
+
+ROW COUNT:
+<<<ROWS>>>
+
+FILE SIZE:
+<<<SIZE>>>
+
+SCHEMA:
+<<<SCHEMA>>>
+
+NULL % (if available):
+<<<NULLS>>>
+
+Provide a concise summary that includes:
+1. What the table contains
+2. Data health observations
+3. Any potential issues or improvements
+
+Return plain text only.

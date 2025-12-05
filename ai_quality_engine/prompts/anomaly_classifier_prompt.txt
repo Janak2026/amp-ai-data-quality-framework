@@ -1,0 +1,12 @@
+Classify the anomaly into one of the categories:
+["schema_drift", "missing_values", "outlier", "distribution_shift", "business_rule_violation"]
+
+Input anomaly details:
+<<<ANOMALY>>>
+
+Return ONLY JSON with:
+{
+  "type": "...",
+  "severity": "...",
+  "explanation": "..."
+}
